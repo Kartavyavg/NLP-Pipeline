@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLP Text Processing Pipeline</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+    <!-- Add jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --info-color: #17a2b8;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--secondary-color);
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .pipeline-step {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            padding: 25px;
+            transition: transform 0.3s ease;
+        }
+
+        .pipeline-step:hover {
+            transform: translateY(-2px);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+
+        .step-number {
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .step-title {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .output-section {
+            background: #e8f5e8;
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .token-box {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        .removed-token {
+            background: #dc3545;
+            text-decoration: line-through;
+        }
+
+        .bow-word {
+            background: #28a745;
+            color: white;
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .word-count {
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .tfidf-matrix {
+            overflow-x: auto;
+        }
+
+        .tfidf-score {
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .high-score { background: #ff6b6b; color: white; }
+        .medium-score { background: #feca57; color: black; }
+        .low-score { background: #48dbfb; color: black; }
+
+        .processing-arrow {
+            text-align: center;
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin: 20px 0;
+        }
+
+        .feature-highlight {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .visualization-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .progress-pipeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .progress-step:hover {
+            transform: scale(1.05);
+            background-color: rgba(74, 144, 226, 0.1);
+        }
+
+        .progress-step:not(:last-child)::after {
+            content: '→';
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            pointer-events: none;
+        }
+
+        .progress-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .progress-circle.active {
+            background: var(--primary-color);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .progress-circle.completed {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .progress-circle.clickable {
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .progress-circle.clickable:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .btn-process {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-process:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .code-highlight {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            border-left: 4px solid var(--info-color);
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-export {
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-export-json {
+            background: linear-gradient(45deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-export-pdf {
+            background: linear-gradient(45deg, #dc3545 0%, #e83e8c 100%);
+            color: white;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .step-navigation-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .step-navigation-info.show {
+            display: block;
+        }
+
+        .step-navigation-info.hide {
+            display: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .export-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn-export {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <header class="text-center mb-5">
+            <h1 class="display-3 text-primary mb-3"> NLP Text Processing Pipeline</h1>
+            <p class="lead">Made by - Kartavya Vishwas Gupta </p>
+        </header>
+
+        <!-- Progress Pipeline Indicator -->
+        <div class="progress-pipeline">
+            <div class="progress-step" onclick="navigateToStep(1)">
+                <div class="progress-circle clickable" id="step1-circle">1</div>
+                <span>Text Input</span>
+            </div>
+            <div class="progress-step" onclick="navigateToStep(2)">
+                <div class="progress-circle clickable" id="step2-circle">2</div>
+                <span>Normalization</span>
+            </div>
+            <div class="progress-step" onclick="navigateToStep(3)">
+                <div class="progress-circle clickable" id="step3-circle">3</div>
+                <span>Tokenization</span>
+            </div>
+            <div class="progress-step" onclick="navigateToStep(4)">
+                <div class="progress-circle clickable" id="step4-circle">4</div>
+                <span>Bag of Words</span>
+            </div>
+            <div class="progress-step" onclick="navigateToStep(5)">
+                <div class="progress-circle clickable" id="step5-circle">5</div>
+                <span>TF-IDF</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Text Input -->
+        <div class="pipeline-step" id="step1">
+            <div class="step-header">
+                <div class="step-number">1</div>
+                <h2 class="step-title">Text Input & Sample Data</h2>
+            </div>
+
+            <div class="input-section">
+                <label for="inputText" class="form-label">Enter your text or use sample data:</label>
+                <textarea 
+                    class="form-control mb-3" 
+                    id="inputText" 
+                    rows="4" 
+                    placeholder="Enter multiple sentences or documents here..."
+                ></textarea>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-outline-primary" onclick="loadSample('news')">📰 News Sample</button>
+                    <button class="btn btn-outline-primary" onclick="loadSample('reviews')">⭐ Product Reviews</button>
+                    <button class="btn btn-outline-primary" onclick="loadSample('social')">💬 Social Media</button>
+                    <button class="btn btn-outline-primary" onclick="loadSample('academic')">🎓 Academic Text</button>
+                </div>
+
+                <button class="btn btn-process btn-lg" onclick="processText()">
+                    🚀 Process Text Through Pipeline
+                </button>
+            </div>
+
+            <div class="feature-highlight">
+                <h5>💡 What happens in this step:</h5>
+                <ul>
+                    <li>Raw text input is collected and prepared for processing</li>
+                    <li>Text is split into individual documents (sentences/paragraphs)</li>
+                    <li>Initial statistics are calculated (character count, document count)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step 2: Text Normalization -->
+        <div class="pipeline-step" id="step2" style="display: none;">
+            <div class="step-header">
+                <div class="step-number">2</div>
+                <h2 class="step-title">Text Normalization</h2>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-section">
+                        <h5>📝 Original Text:</h5>
+                        <div id="originalText" class="code-highlight"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="output-section">
+                        <h5>✨ Normalized Text:</h5>
+                        <div id="normalizedText" class="code-highlight"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="processing-arrow">⬇️</div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="charReduction">0%</div>
+                    <div class="stat-label">Character Reduction</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="punctuationRemoved">0</div>
+                    <div class="stat-label">Punctuation Marks Removed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="caseChanges">0</div>
+                    <div class="stat-label">Case Normalizations</div>
+                </div>
+            </div>
+
+            <div class="feature-highlight">
+                <h5>🔧 Normalization Steps Applied:</h5>
+                <ul>
+                    <li><strong>Lowercase Conversion:</strong> Standardizes text casing</li>
+                    <li><strong>Punctuation Removal:</strong> Removes special characters and punctuation</li>
+                    <li><strong>Extra Whitespace Removal:</strong> Cleans up spacing</li>
+                    <li><strong>Number Handling:</strong> Optionally removes or normalizes numbers</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step 3: Tokenization -->
+        <div class="pipeline-step" id="step3" style="display: none;">
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <h2 class="step-title">Tokenization & Stop Word Removal</h2>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>🔤 All Tokens:</h5>
+                    <div id="allTokens" class="p-3 bg-light rounded"></div>
+                </div>
+                <div class="col-md-6">
+                    <h5>🚫 Stop Words Removed:</h5>
+                    <div id="filteredTokens" class="p-3 bg-light rounded"></div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTokens">0</div>
+                    <div class="stat-label">Total Tokens</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="uniqueTokens">0</div>
+                    <div class="stat-label">Unique Tokens</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stopWordsRemoved">0</div>
+                    <div class="stat-label">Stop Words Removed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="vocabularySize">0</div>
+                    <div class="stat-label">Final Vocabulary Size</div>
+                </div>
+            </div>
+
+            <div class="feature-highlight">
+                <h5>✂️ Tokenization Process:</h5>
+                <ul>
+                    <li><strong>Word Splitting:</strong> Text broken into individual words</li>
+                    <li><strong>Stop Word Filtering:</strong> Common words (a, the, is, etc.) removed</li>
+                    <li><strong>Vocabulary Building:</strong> Unique words identified for further processing</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step 4: Bag of Words -->
+        <div class="pipeline-step" id="step4" style="display: none;">
+            <div class="step-header">
+                <div class="step-number">4</div>
+                <h2 class="step-title">Bag of Words (BoW) Representation</h2>
+            </div>
+
+            <div class="visualization-container">
+                <h5>📊 Word Frequency Visualization:</h5>
+                <div id="bowVisualization"></div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>🎒 Document-Term Matrix:</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="bowMatrix">
+                            <thead class="table-primary"></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-highlight">
+                <h5>🎯 Bag of Words Concept:</h5>
+                <ul>
+                    <li><strong>Word Counting:</strong> Each document represented as word frequency counts</li>
+                    <li><strong>Position Ignored:</strong> Word order doesn't matter, only frequency</li>
+                    <li><strong>Matrix Form:</strong> Documents become rows, words become columns</li>
+                    <li><strong>Sparse Representation:</strong> Most values are 0 (words not present)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step 5: TF-IDF -->
+        <div class="pipeline-step" id="step5" style="display: none;">
+            <div class="step-header">
+                <div class="step-number">5</div>
+                <h2 class="step-title">TF-IDF (Term Frequency-Inverse Document Frequency)</h2>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="visualization-container">
+                        <h5>📈 TF Scores:</h5>
+                        <div id="tfScores"></div>
+                        <small class="text-muted">Term Frequency: How often a word appears in a document</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="visualization-container">
+                        <h5>📉 IDF Scores:</h5>
+                        <div id="idfScores"></div>
+                        <small class="text-muted">Inverse Document Frequency: Rarity of word across all documents</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualization-container">
+                <h5>🎯 Final TF-IDF Matrix:</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped" id="tfidfMatrix">
+                        <thead class="table-success"></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="visualization-container">
+                        <h5>🏆 Most Important Words by Document:</h5>
+                        <div id="topWords"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="visualization-container">
+                        <h5>📊 TF-IDF Formula:</h5>
+                        <div class="code-highlight">
+                            <strong>TF-IDF(t,d) = TF(t,d) × IDF(t)</strong><br><br>
+                            <strong>TF(t,d)</strong> = (Number of times term t appears in document d) / (Total number of terms in document d)<br><br>
+                            <strong>IDF(t)</strong> = log(Total number of documents / Number of documents containing term t)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-highlight">
+                <h5>🧮 TF-IDF Explained:</h5>
+                <ul>
+                    <li><strong>TF (Term Frequency):</strong> Measures how frequently a term appears in a document</li>
+                    <li><strong>IDF (Inverse Document Frequency):</strong> Measures how rare or common a term is across all documents</li>
+                    <li><strong>Combined Score:</strong> High TF-IDF = frequent in document but rare overall = important!</li>
+                    <li><strong>Use Cases:</strong> Search engines, document similarity, keyword extraction</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="pipeline-step" id="summary" style="display: none;">
+            <div class="step-header">
+                <div class="step-number">✅</div>
+                <h2 class="step-title">Pipeline Summary & Insights</h2>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="visualization-container">
+                        <h5>📈 Processing Statistics:</h5>
+                        <div id="finalStats"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="visualization-container">
+                        <h5>🔍 Key Insights:</h5>
+                        <div id="keyInsights"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-highlight">
+                <h5>🎯 What You've Learned:</h5>
+                <ul>
+                    <li><strong>Text Preprocessing:</strong> How raw text is cleaned and normalized</li>
+                    <li><strong>Tokenization:</strong> Breaking text into meaningful units</li>
+                    <li><strong>Bag of Words:</strong> Converting text to numerical representations</li>
+                    <li><strong>TF-IDF:</strong> Weighing words by importance across documents</li>
+                    <li><strong>Real Applications:</strong> These techniques power search engines, recommendation systems, and AI models</li>
+                </ul>
+            </div>
+
+            <div class="export-buttons">
+                <button class="btn-export btn-export-json" onclick="exportResults()">
+                    💾 Export as JSON
+                </button>
+                <button class="btn-export btn-export-pdf" onclick="exportAsPDF()">
+                    📄 Print as PDF
+                </button>
+                <button class="btn btn-outline-primary" onclick="resetPipeline()">
+                    🔄 Process New Text
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script>
+        // Sample datasets
+        const samples = {
+            news: [
+                "Breaking news: Scientists discover new species in deep ocean trenches near Pacific islands.",
+                "Technology companies are investing heavily in artificial intelligence research and development.",
+                "Climate change continues to impact weather patterns across the globe this year.",
+                "The stock market showed significant volatility following recent economic announcements."
+            ],
+            reviews: [
+                "This product is absolutely amazing! Great quality and fast shipping. Highly recommend to everyone.",
+                "Terrible experience with this purchase. Poor quality materials and doesn't work as advertised.",
+                "Good product overall but could use some improvements in design and functionality.",
+                "Outstanding customer service and excellent product quality. Will definitely buy again soon."
+            ],
+            social: [
+                "Just had the best coffee ever at this new cafe downtown! #coffee #perfect",
+                "Can't believe how beautiful the sunset looks today. Nature is truly amazing! 🌅",
+                "Working from home has its perks but missing office conversations with colleagues.",
+                "Excited to start my new fitness journey this month. Let's do this! 💪"
+            ],
+            academic: [
+                "Machine learning algorithms have revolutionized data analysis across multiple scientific disciplines.",
+                "The relationship between socioeconomic factors and educational outcomes requires comprehensive research methodologies.",
+                "Quantum computing represents a paradigm shift in computational capabilities and problem-solving approaches.",
+                "Environmental sustainability initiatives must integrate technological innovation with policy frameworks."
+            ]
+        };
+
+        // Stop words list
+        const stopWords = new Set([
+            'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+            'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
+            'to', 'was', 'will', 'with', 'this', 'but', 'they', 'have', 'had',
+            'what', 'said', 'each', 'which', 'their', 'time', 'been', 'who',
+            'oil', 'up', 'down', 'day', 'did', 'get', 'may', 'new', 'now',
+            'old', 'see', 'two', 'way', 'can', 'come', 'could', 'first',
+            'find', 'give', 'his', 'how', 'just', 'know', 'made', 'make',
+            'man', 'many', 'over', 'such', 'take', 'than', 'them', 'well',
+            'were', 'would', 'your', 'my', 'me', 'we', 'you', 'i', 'am'
+        ]);
+
+        // Global variables for pipeline data
+        let pipelineData = {
+            originalText: '',
+            documents: [],
+            normalizedDocs: [],
+            allTokens: [],
+            filteredTokens: [],
+            vocabulary: [],
+            bowMatrix: [],
+            tfMatrix: [],
+            idfScores: {},
+            tfidfMatrix: []
+        };
+
+        let currentStep = 1;
+        let processingComplete = false;
+
+        // Navigate to specific step
+        function navigateToStep(stepNumber) {
+            if (!processingComplete && stepNumber > currentStep) {
+                alert(`Please complete the pipeline processing first to access Step ${stepNumber}.`);
+                return;
+            }
+
+            // Hide all steps
+            document.querySelectorAll('.pipeline-step').forEach(step => {
+                step.style.display = 'none';
+            });
+
+            // Show target step
+            const targetStep = document.getElementById(`step${stepNumber}`);
+            if (targetStep) {
+                targetStep.style.display = 'block';
+                targetStep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                // Update visual indicators
+                updateStepIndicators(stepNumber);
+
+                // Show navigation info if not already shown
+                showNavigationInfo();
+            } else if (stepNumber === 6 && processingComplete) {
+                // Summary step
+                document.getElementById('summary').style.display = 'block';
+                document.getElementById('summary').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                updateStepIndicators('summary');
+            }
+        }
+
+        // Show navigation info
+        function showNavigationInfo() {
+            const navInfo = document.getElementById('stepNavigationInfo');
+            if (processingComplete && navInfo.classList.contains('hide')) {
+                navInfo.classList.remove('hide');
+                navInfo.classList.add('show');
+            }
+        }
+
+        // Update step indicators
+        function updateStepIndicators(activeStep) {
+            for (let i = 1; i <= 5; i++) {
+                const circle = document.getElementById(`step${i}-circle`);
+                circle.classList.remove('active');
+
+                if (i === activeStep) {
+                    circle.classList.add('active');
+                }
+            }
+        }
+
+        // Load sample data
+        function loadSample(type) {
+            const sampleText = samples[type].join('\n\n');
+            document.getElementById('inputText').value = sampleText;
+        }
+
+        // Main processing function
+        function processText() {
+            const inputText = document.getElementById('inputText').value.trim();
+            if (!inputText) {
+                alert('Please enter some text to process!');
+                return;
+            }
+
+            // Reset and start pipeline
+            resetPipelineData();
+            pipelineData.originalText = inputText;
+
+            // Update progress indicators
+            updateProgress(1);
+
+            // Step 1: Split into documents
+            pipelineData.documents = inputText.split(/\n\s*\n/).filter(doc => doc.trim().length > 0);
+
+            setTimeout(() => {
+                step2_normalize();
+            }, 1000);
+        }
+
+        // Step 2: Text Normalization
+        function step2_normalize() {
+            updateProgress(2);
+            showStep('step2');
+
+            const originalText = pipelineData.documents.join('\n\n');
+            document.getElementById('originalText').textContent = originalText;
+
+            // Normalize each document
+            pipelineData.normalizedDocs = pipelineData.documents.map(doc => {
+                return doc
+                    .toLowerCase()                           // Convert to lowercase
+                    .replace(/[^\w\s]/g, ' ')              // Remove punctuation
+                    .replace(/\d+/g, ' ')                   // Remove numbers
+                    .replace(/\s+/g, ' ')                   // Normalize whitespace
+                    .trim();
+            });
+
+            const normalizedText = pipelineData.normalizedDocs.join('\n\n');
+            document.getElementById('normalizedText').textContent = normalizedText;
+
+            // Calculate statistics
+            const originalLength = originalText.length;
+            const normalizedLength = normalizedText.length;
+            const reduction = Math.round(((originalLength - normalizedLength) / originalLength) * 100);
+
+            const punctuationCount = (originalText.match(/[^\w\s]/g) || []).length;
+            const caseCount = (originalText.match(/[A-Z]/g) || []).length;
+
+            document.getElementById('charReduction').textContent = reduction + '%';
+            document.getElementById('punctuationRemoved').textContent = punctuationCount;
+            document.getElementById('caseChanges').textContent = caseCount;
+
+            currentStep = 2;
+            setTimeout(() => {
+                step3_tokenize();
+            }, 2000);
+        }
+
+        // Step 3: Tokenization
+        function step3_tokenize() {
+            updateProgress(3);
+            showStep('step3');
+
+            // Tokenize all documents
+            const allTokensFlat = [];
+            pipelineData.normalizedDocs.forEach(doc => {
+                const tokens = doc.split(/\s+/).filter(token => token.length > 0);
+                allTokensFlat.push(...tokens);
+            });
+
+            pipelineData.allTokens = allTokensFlat;
+            pipelineData.filteredTokens = allTokensFlat.filter(token => !stopWords.has(token));
+            pipelineData.vocabulary = [...new Set(pipelineData.filteredTokens)].sort();
+
+            // Display tokens
+            displayTokens();
+            displayStats();
+
+            currentStep = 3;
+            setTimeout(() => {
+                step4_bagOfWords();
+            }, 2000);
+        }
+
+        // Display tokens with styling
+        function displayTokens() {
+            const allTokensEl = document.getElementById('allTokens');
+            const filteredTokensEl = document.getElementById('filteredTokens');
+
+            // Show all tokens
+            allTokensEl.innerHTML = pipelineData.allTokens.map(token => {
+                const isStopWord = stopWords.has(token);
+                return `<span class="token-box ${isStopWord ? 'removed-token' : ''}">${token}</span>`;
+            }).join('');
+
+            // Show filtered tokens
+            filteredTokensEl.innerHTML = pipelineData.filteredTokens.map(token => 
+                `<span class="token-box">${token}</span>`
+            ).join('');
+        }
+
+        // Display tokenization statistics
+        function displayStats() {
+            document.getElementById('totalTokens').textContent = pipelineData.allTokens.length;
+            document.getElementById('uniqueTokens').textContent = new Set(pipelineData.allTokens).size;
+            document.getElementById('stopWordsRemoved').textContent = pipelineData.allTokens.length - pipelineData.filteredTokens.length;
+            document.getElementById('vocabularySize').textContent = pipelineData.vocabulary.length;
+        }
+
+        // Step 4: Bag of Words
+        function step4_bagOfWords() {
+            updateProgress(4);
+            showStep('step4');
+
+            // Create BoW matrix
+            pipelineData.bowMatrix = pipelineData.normalizedDocs.map(doc => {
+                const docTokens = doc.split(/\s+/).filter(token => !stopWords.has(token) && token.length > 0);
+                return pipelineData.vocabulary.map(word => {
+                    return docTokens.filter(token => token === word).length;
+                });
+            });
+
+            // Display BoW matrix
+            displayBowMatrix();
+
+            currentStep = 4;
+            setTimeout(() => {
+                step5_tfidf();
+            }, 2000);
+        }
+
+        // Display Bag of Words matrix
+        function displayBowMatrix() {
+            const table = document.getElementById('bowMatrix');
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+
+            // Create header
+            thead.innerHTML = `
+                <tr>
+                    <th>Document</th>
+                    ${pipelineData.vocabulary.slice(0, 10).map(word => `<th>${word}</th>`).join('')}
+                    ${pipelineData.vocabulary.length > 10 ? '<th>...</th>' : ''}
+                </tr>
+            `;
+
+            // Create rows
+            tbody.innerHTML = pipelineData.bowMatrix.map((docVector, docIndex) => `
+                <tr>
+                    <td><strong>Doc ${docIndex + 1}</strong></td>
+                    ${docVector.slice(0, 10).map(count => `<td>${count}</td>`).join('')}
+                    ${docVector.length > 10 ? '<td>...</td>' : ''}
+                </tr>
+            `).join('');
+        }
+
+        // Step 5: TF-IDF
+        function step5_tfidf() {
+            updateProgress(5);
+            showStep('step5');
+
+            calculateTfIdf();
+            displayTfIdfResults();
+
+            currentStep = 5;
+            setTimeout(() => {
+                showSummary();
+            }, 2000);
+        }
+
+        // Calculate TF-IDF scores
+        function calculateTfIdf() {
+            const numDocs = pipelineData.normalizedDocs.length;
+
+            // Calculate TF matrix
+            pipelineData.tfMatrix = pipelineData.bowMatrix.map(docVector => {
+                const totalWords = docVector.reduce((sum, count) => sum + count, 0);
+                return docVector.map(count => totalWords > 0 ? count / totalWords : 0);
+            });
+
+            // Calculate IDF scores
+            pipelineData.vocabulary.forEach((word, wordIndex) => {
+                const docsContaining = pipelineData.bowMatrix.filter(docVector => docVector[wordIndex] > 0).length;
+                pipelineData.idfScores[word] = Math.log(numDocs / (docsContaining || 1));
+            });
+
+            // Calculate TF-IDF matrix
+            pipelineData.tfidfMatrix = pipelineData.tfMatrix.map(tfVector => 
+                tfVector.map((tf, wordIndex) => tf * pipelineData.idfScores[pipelineData.vocabulary[wordIndex]])
+            );
+        }
+
+        // Display TF-IDF results
+        function displayTfIdfResults() {
+            // Display TF and IDF scores
+            displayTfScores();
+            displayIdfScores();
+            displayTfIdfMatrix();
+            displayTopWords();
+        }
+
+        // Display TF scores
+        function displayTfScores() {
+            const tfContainer = document.getElementById('tfScores');
+            const topTfWords = pipelineData.vocabulary
+                .map((word, index) => ({
+                    word: word,
+                    maxTf: Math.max(...pipelineData.tfMatrix.map(doc => doc[index]))
+                }))
+                .sort((a, b) => b.maxTf - a.maxTf)
+                .slice(0, 8);
+
+            tfContainer.innerHTML = topTfWords.map(item => 
+                `<span class="bow-word">
+                    ${item.word}
+                    <span class="word-count">${item.maxTf.toFixed(3)}</span>
+                </span>`
+            ).join('');
+        }
+
+        // Display IDF scores
+        function displayIdfScores() {
+            const idfContainer = document.getElementById('idfScores');
+            const sortedIdfWords = Object.entries(pipelineData.idfScores)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 8);
+
+            idfContainer.innerHTML = sortedIdfWords.map(([word, score]) => 
+                `<span class="bow-word">
+                    ${word}
+                    <span class="word-count">${score.toFixed(3)}</span>
+                </span>`
+            ).join('');
+        }
+
+        // Display TF-IDF matrix
+        function displayTfIdfMatrix() {
+            const table = document.getElementById('tfidfMatrix');
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+
+            // Create header (showing top words by max TF-IDF)
+            const topWords = pipelineData.vocabulary
+                .map((word, index) => ({
+                    word: word,
+                    maxTfIdf: Math.max(...pipelineData.tfidfMatrix.map(doc => doc[index]))
+                }))
+                .sort((a, b) => b.maxTfIdf - a.maxTfIdf)
+                .slice(0, 8);
+
+            thead.innerHTML = `
+                <tr>
+                    <th>Document</th>
+                    ${topWords.map(item => `<th>${item.word}</th>`).join('')}
+                </tr>
+            `;
+
+            // Create rows
+            tbody.innerHTML = pipelineData.tfidfMatrix.map((docVector, docIndex) => {
+                return `
+                    <tr>
+                        <td><strong>Doc ${docIndex + 1}</strong></td>
+                        ${topWords.map(item => {
+                            const wordIndex = pipelineData.vocabulary.indexOf(item.word);
+                            const score = docVector[wordIndex];
+                            const scoreClass = score > 0.1 ? 'high-score' : score > 0.05 ? 'medium-score' : 'low-score';
+                            return `<td><span class="tfidf-score ${scoreClass}">${score.toFixed(4)}</span></td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Display top words for each document
+        function displayTopWords() {
+            const topWordsContainer = document.getElementById('topWords');
+
+            const docTopWords = pipelineData.tfidfMatrix.map((docVector, docIndex) => {
+                const wordScores = docVector
+                    .map((score, wordIndex) => ({ word: pipelineData.vocabulary[wordIndex], score: score }))
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5)
+                    .filter(item => item.score > 0);
+
+                return {
+                    docIndex: docIndex + 1,
+                    topWords: wordScores
+                };
+            });
+
+            topWordsContainer.innerHTML = docTopWords.map(doc => `
+                <div class="mb-3">
+                    <h6>Document ${doc.docIndex}:</h6>
+                    ${doc.topWords.map(item => 
+                        `<span class="bow-word">
+                            ${item.word}
+                            <span class="word-count">${item.score.toFixed(4)}</span>
+                        </span>`
+                    ).join('')}
+                </div>
+            `).join('');
+        }
+
+        // Show summary
+        function showSummary() {
+            updateProgress('completed');
+            showStep('summary');
+            processingComplete = true;
+
+            displayFinalStats();
+            displayKeyInsights();
+            showNavigationInfo();
+        }
+
+        // Display final statistics
+        function displayFinalStats() {
+            const statsContainer = document.getElementById('finalStats');
+            const totalWords = pipelineData.allTokens.length;
+            const uniqueWords = pipelineData.vocabulary.length;
+            const avgTfIdf = pipelineData.tfidfMatrix.flat().reduce((sum, score) => sum + score, 0) / pipelineData.tfidfMatrix.flat().length;
+
+            statsContainer.innerHTML = `
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-value">${pipelineData.documents.length}</div>
+                            <div class="stat-label">Documents Processed</div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-value">${totalWords}</div>
+                            <div class="stat-label">Total Words</div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-value">${uniqueWords}</div>
+                            <div class="stat-label">Unique Words</div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stat-card">
+                            <div class="stat-value">${avgTfIdf.toFixed(4)}</div>
+                            <div class="stat-label">Avg TF-IDF Score</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display key insights
+        function displayKeyInsights() {
+            const insightsContainer = document.getElementById('keyInsights');
+
+            // Find most important words across all documents
+            const globalTopWords = Object.entries(pipelineData.idfScores)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            // Find most frequent words after stop word removal
+            const wordFrequency = {};
+            pipelineData.filteredTokens.forEach(word => {
+                wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+            });
+
+            const topFreqWords = Object.entries(wordFrequency)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            insightsContainer.innerHTML = `
+                <h6>🏆 Most Distinctive Words (High IDF):</h6>
+                <p>${globalTopWords.map(([word]) => `<span class="badge bg-primary">${word}</span>`).join(' ')}</p>
+
+                <h6>📈 Most Frequent Words:</h6>
+                <p>${topFreqWords.map(([word, freq]) => `<span class="badge bg-success">${word} (${freq})</span>`).join(' ')}</p>
+
+                <h6>💡 Pipeline Insights:</h6>
+                <ul class="list-unstyled">
+                    <li>• Vocabulary reduced by ${Math.round(((pipelineData.allTokens.length - pipelineData.vocabulary.length) / pipelineData.allTokens.length) * 100)}% after preprocessing</li>
+                    <li>• TF-IDF highlights words that are frequent in documents but rare across the corpus</li>
+                    <li>• This representation can be used for document similarity, search, and clustering</li>
+                </ul>
+            `;
+        }
+
+        // Update progress indicators
+        function updateProgress(step) {
+            for (let i = 1; i <= 5; i++) {
+                const circle = document.getElementById(`step${i}-circle`);
+                circle.classList.remove('active', 'completed');
+
+                if (i < step || step === 'completed') {
+                    circle.classList.add('completed');
+                } else if (i === step) {
+                    circle.classList.add('active');
+                }
+            }
+        }
+
+        // Show specific step
+        function showStep(stepId) {
+            // Hide all steps
+            document.querySelectorAll('.pipeline-step').forEach(step => {
+                if (step.id !== 'step1') {
+                    step.style.display = 'none';
+                }
+            });
+
+            // Show requested step with animation
+            const step = document.getElementById(stepId);
+            step.style.display = 'block';
+            step.classList.add('fade-in');
+
+            // Scroll to step
+            step.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Reset pipeline data
+        function resetPipelineData() {
+            pipelineData = {
+                originalText: '',
+                documents: [],
+                normalizedDocs: [],
+                allTokens: [],
+                filteredTokens: [],
+                vocabulary: [],
+                bowMatrix: [],
+                tfMatrix: [],
+                idfScores: {},
+                tfidfMatrix: []
+            };
+            processingComplete = false;
+            currentStep = 1;
+        }
+
+        // Reset entire pipeline
+        function resetPipeline() {
+            resetPipelineData();
+            updateProgress(1);
+
+            // Hide navigation info
+            const navInfo = document.getElementById('stepNavigationInfo');
+            navInfo.classList.remove('show');
+            navInfo.classList.add('hide');
+
+            // Hide all steps except the first one
+            document.querySelectorAll('.pipeline-step').forEach((step, index) => {
+                step.style.display = index === 0 ? 'block' : 'none';
+            });
+
+            // Clear input
+            document.getElementById('inputText').value = '';
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Export results as JSON
+        function exportResults() {
+            if (!processingComplete) {
+                alert('Please complete the pipeline processing first!');
+                return;
+            }
+
+            const results = {
+                timestamp: new Date().toISOString(),
+                originalText: pipelineData.originalText,
+                processedDocuments: pipelineData.documents.length,
+                vocabulary: pipelineData.vocabulary,
+                vocabularySize: pipelineData.vocabulary.length,
+                bowMatrix: pipelineData.bowMatrix,
+                tfidfMatrix: pipelineData.tfidfMatrix,
+                idfScores: pipelineData.idfScores,
+                processingStats: {
+                    totalTokens: pipelineData.allTokens.length,
+                    uniqueTokens: new Set(pipelineData.allTokens).size,
+                    stopWordsRemoved: pipelineData.allTokens.length - pipelineData.filteredTokens.length,
+                    vocabularyReduction: Math.round(((pipelineData.allTokens.length - pipelineData.vocabulary.length) / pipelineData.allTokens.length) * 100)
+                },
+                topWords: Object.entries(pipelineData.idfScores)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .map(([word, score]) => ({ word, idfScore: score }))
+            };
+
+            const dataStr = JSON.stringify(results, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = `nlp_pipeline_results_${new Date().toISOString().slice(0,10)}.json`;
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        // Export results as PDF
+        function exportAsPDF() {
+            if (!processingComplete) {
+                alert('Please complete the pipeline processing first!');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // PDF styling
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+            const margin = 20;
+            const lineHeight = 7;
+            let y = margin;
+
+            // Helper function to add text with wrapping
+            function addText(text, fontSize = 12, isBold = false) {
+                doc.setFontSize(fontSize);
+                if (isBold) {
+                    doc.setFont(undefined, 'bold');
+                } else {
+                    doc.setFont(undefined, 'normal');
+                }
+
+                const splitText = doc.splitTextToSize(text, pageWidth - 2 * margin);
+                if (y + splitText.length * lineHeight > pageHeight - margin) {
+                    doc.addPage();
+                    y = margin;
+                }
+
+                doc.text(splitText, margin, y);
+                y += splitText.length * lineHeight + 3;
+                return y;
+            }
+
+            // Helper function to add section header
+            function addSectionHeader(title) {
+                y += 5;
+                addText(title, 16, true);
+                y += 3;
+            }
+
+            // Helper function to add table
+            function addTable(headers, rows, maxRows = 10) {
+                const tableData = rows.slice(0, maxRows);
+                const colWidth = (pageWidth - 2 * margin) / headers.length;
+
+                // Check if table fits on current page
+                if (y + (tableData.length + 2) * lineHeight > pageHeight - margin) {
+                    doc.addPage();
+                    y = margin;
+                }
+
+                // Headers
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(10);
+                headers.forEach((header, i) => {
+                    doc.text(header, margin + i * colWidth, y);
+                });
+                y += lineHeight;
+
+                // Rows
+                doc.setFont(undefined, 'normal');
+                tableData.forEach(row => {
+                    row.forEach((cell, i) => {
+                        const cellText = String(cell).substring(0, 15); // Truncate long text
+                        doc.text(cellText, margin + i * colWidth, y);
+                    });
+                    y += lineHeight;
+                });
+                y += 5;
+            }
+
+            // Title
+            doc.setFillColor(74, 144, 226);
+            doc.rect(0, 0, pageWidth, 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            addText('NLP Text Processing Pipeline - Analysis Report', 20, true);
+
+            doc.setTextColor(0, 0, 0);
+            y = 40;
+
+            // Metadata
+            addSectionHeader('📄 Report Information');
+            addText(`Generated: ${new Date().toLocaleString()}`);
+            addText(`Documents Processed: ${pipelineData.documents.length}`);
+            addText(`Total Words: ${pipelineData.allTokens.length}`);
+            addText(`Unique Words: ${pipelineData.vocabulary.length}`);
+
+            // Original Text
+            addSectionHeader('📝 Original Text');
+            addText(pipelineData.originalText.substring(0, 500) + (pipelineData.originalText.length > 500 ? '...' : ''));
+
+            // Normalization Results
+            addSectionHeader('✨ Text Normalization Results');
+            const normalizedText = pipelineData.normalizedDocs.join(' ');
+            addText(`Normalized: ${normalizedText.substring(0, 300)}...`);
+
+            const originalLength = pipelineData.originalText.length;
+            const normalizedLength = normalizedText.length;
+            const reduction = Math.round(((originalLength - normalizedLength) / originalLength) * 100);
+            addText(`Character Reduction: ${reduction}%`);
+
+            // Tokenization Results
+            addSectionHeader('🔤 Tokenization Results');
+            addText(`Total Tokens: ${pipelineData.allTokens.length}`);
+            addText(`Filtered Tokens: ${pipelineData.filteredTokens.length}`);
+            addText(`Stop Words Removed: ${pipelineData.allTokens.length - pipelineData.filteredTokens.length}`);
+            addText(`Final Vocabulary Size: ${pipelineData.vocabulary.length}`);
+
+            addText('Sample Vocabulary:', 12, true);
+            addText(pipelineData.vocabulary.slice(0, 20).join(', '));
+
+            // Bag of Words
+            addSectionHeader('🎒 Bag of Words Matrix (Sample)');
+            if (pipelineData.bowMatrix.length > 0) {
+                const bowHeaders = ['Document', ...pipelineData.vocabulary.slice(0, 8)];
+                const bowRows = pipelineData.bowMatrix.map((row, i) => 
+                    [`Doc ${i+1}`, ...row.slice(0, 8)]
+                );
+                addTable(bowHeaders, bowRows, 5);
+            }
+
+            // TF-IDF Results
+            addSectionHeader('🎯 TF-IDF Analysis');
+
+            // Top words globally
+            addText('Top Words by IDF Score:', 12, true);
+            const topIdfWords = Object.entries(pipelineData.idfScores)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            topIdfWords.forEach(([word, score]) => {
+                addText(`${word}: ${score.toFixed(4)}`);
+            });
+
+            // TF-IDF Matrix sample
+            if (pipelineData.tfidfMatrix.length > 0) {
+                addText('TF-IDF Matrix (Top Words):', 12, true);
+                const topWords = pipelineData.vocabulary
+                    .map((word, index) => ({
+                        word: word,
+                        maxTfIdf: Math.max(...pipelineData.tfidfMatrix.map(doc => doc[index]))
+                    }))
+                    .sort((a, b) => b.maxTfIdf - a.maxTfIdf)
+                    .slice(0, 6);
+
+                const tfidfHeaders = ['Document', ...topWords.map(item => item.word)];
+                const tfidfRows = pipelineData.tfidfMatrix.map((docVector, docIndex) => {
+                    return [`Doc ${docIndex + 1}`, ...topWords.map(item => {
+                        const wordIndex = pipelineData.vocabulary.indexOf(item.word);
+                        return docVector[wordIndex].toFixed(4);
+                    })];
+                });
+                addTable(tfidfHeaders, tfidfRows);
+            }
+
+            // Key Insights
+            addSectionHeader('💡 Key Insights');
+            addText('• Text preprocessing significantly reduced character count while preserving meaning');
+            addText('• Stop word removal focused analysis on content-bearing words');
+            addText('• TF-IDF scores identify words that are frequent in documents but rare across the corpus');
+            addText('• This numerical representation enables machine learning applications');
+
+            const vocabReduction = Math.round(((pipelineData.allTokens.length - pipelineData.vocabulary.length) / pipelineData.allTokens.length) * 100);
+            addText(`• Vocabulary was reduced by ${vocabReduction}% through preprocessing steps`);
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text('Generated by NLP Text Processing Pipeline', margin, pageHeight - 10);
+
+            // Save the PDF
+            const fileName = `NLP_Pipeline_Analysis_${new Date().toISOString().slice(0,10)}.pdf`;
+            doc.save(fileName);
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load a default sample
+            loadSample('academic');
+
+            // Add some interactive features
+            document.getElementById('inputText').addEventListener('input', function() {
+                const text = this.value;
+                // You could add a real-time preview here
+            });
+        });
+
+        console.log(showSummary())
+    </script>
+</body>
+</html>
